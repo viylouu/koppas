@@ -1,0 +1,6 @@
+the command to build the game
+
+odin build . -out:build/koppas.exe -o:speed
+
+DONT USE YET (there isnt any assets so far)
+; robocopy "assets" "build/assets" * /e /nfl /njh /njs /ndl /nc /ns
