@@ -1,6 +1,8 @@
 package main
 
 import "core:fmt"
+import "core:strings"
+import "core:strconv"
 import "core:math/rand"
 
 import "kuru"
@@ -15,7 +17,7 @@ CT_SAND   :: 0b001
 CT_STONE  :: 0b010
 
 
-RENDERSCALE :: 4
+RENDERSCALE :: 3
 
 WIDTH :: 256 *RENDERSCALE
 HEIGHT :: 256 *RENDERSCALE
@@ -33,6 +35,12 @@ changed: [256][256]u8
     (B: blue)
     (T: type)
 */
+
+
+fps_update_freq: f32 = 0.45
+fps_update_time: f32 = 1
+lfps: f32
+fpsc: cstring
 
 
 main :: proc() {
@@ -136,7 +144,21 @@ draw :: proc() {
         place_cell(i32(inp.mouse_x/RENDERSCALE),i32(inp.mouse_y/RENDERSCALE), CT_NONE)
     }
 
-    rl.DrawText("köppas pre-alpha (1)", 3,3,16,rl.Color{255,255,255,255})
+    if inp.is_key_down(rl.KeyboardKey.C) {
+        world = [256][256]u16{}
+    }
+
+    fps_update_time += rl.GetFrameTime()
+
+    if fps_update_time >= fps_update_freq {
+        lfps = 1/rl.GetFrameTime()
+        buf: [32]u8
+        fpsc = strings.clone_to_cstring(strings.concatenate({strconv.append_float(buf[:],f64(lfps),'f',-1,32), " FPS"}))
+        fps_update_time = 0
+    }
+
+    rl.DrawText("köppas pre-alpha (2)", 3,3,16,rl.Color{255,255,255,255})
+    rl.DrawText(fpsc, 3,22, 16,rl.Color{255,255,255,255})
 }
 
 quit :: proc() {
