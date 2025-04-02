@@ -3,6 +3,7 @@ package main
 import "core:fmt"
 import "core:strings"
 import "core:strconv"
+import "core:math"
 import "core:math/rand"
 
 import "kuru"
@@ -11,30 +12,14 @@ import inp "kuru/input"
 
 import rl "vendor:raylib"
 
-
-CT_NONE   :: 0b000
-CT_SAND   :: 0b001
-CT_STONE  :: 0b010
+import "util"
+import "ca"
 
 
 RENDERSCALE :: 3
 
-WIDTH :: 256 *RENDERSCALE
-HEIGHT :: 256 *RENDERSCALE
-
-
-world: [256][256]u16
-changed: [256][256]u8
-
-
-/* 0000_RRR_GGG_BBB_TTT 
-    magic rgb conversion number: 255/7: ~36
-
-    (R: red)
-    (G: green)
-    (B: blue)
-    (T: type)
-*/
+WIDTH :: 1280
+HEIGHT :: 720
 
 
 fps_update_freq: f32 = 0.45
@@ -49,68 +34,60 @@ main :: proc() {
 
 
 init :: proc() {
-
+    util.create_chunk(0,0)
 }
 
 tick :: proc() {
-    changed = [256][256]u8{}
-
-    for x : i32 = 0; x < 256; x += 1 {
-        for y : i32 = 0; y < 256; y += 1 {
-            if changed[y][x] == 1 || is_cell(x,y, CT_NONE) {
+    for i := 0; i < 1; i += 1 {
+        for j := 0; j < 1; j += 1 {
+            chk := util.get_chk_cs(i,j)
+            if chk == nil {
                 continue
             }
 
-            if is_cell(x,y, CT_SAND) {
-                if movable_y(y,1) {
-                    if is_cell(x,y+1, CT_NONE) {
-                        swap(x,y, x,y+1)
-                        continue
-                    }
-
-                    if movable_x(x,1) {
-                        if is_cell(x+1,y+1, CT_NONE) {
-                            swap(x,y, x+1,y+1)
-                            continue
-                        }
-                    }
-
-                    if movable_x(x,-1) {
-                        if is_cell(x-1,y+1, CT_NONE) {
-                            swap(x,y, x-1,y+1)
-                            continue
-                        }
-                    }
+            for x := 0; x < 512; x += 1 {
+                for y := 0; y < 512; y += 1 {
+                    util.set_cell_changed(chk,x,y,false)
+                    //chk.data[y][x] &= 0b111_0_111_111_111_111
                 }
             }
 
-            if is_cell(x,y, CT_STONE) {
-                if is_cell(x+1,y-1, CT_STONE) && is_cell(x-1,y-1, CT_STONE) {
-                    stay(x,y)
-                    continue
-                }
-
-                if movable_y(y,1) {
-                    if is_cell(x,y+1, CT_NONE) {
-                        swap(x,y, x,y+1)
+            for x := 0; x < 512; x += 1 {
+                for y := 0; y < 512; y += 1 {
+                    if util.get_cell_changed(chk,x,y) || util.is_cell(x,y, ca.CT_NONE) {
                         continue
                     }
 
-                    /*
-                    if movable_x(x,1) {
-                        if is_cell(x+1,y+1, CT_NONE) {
-                            swap(x,y, x+1,y+1)
+                    wx,wy := util.conv_lw(i,j,x,y)
+
+                    if util.is_cell(wx,wy, ca.CT_SAND) {
+                        if util.is_cell(wx,wy+1, ca.CT_NONE) {
+                            util.swap(wx,wy, wx,wy+1)
+                            continue
+                        }
+
+                        if util.is_cell(wx+1,wy+1, ca.CT_NONE) {
+                            util.swap(wx,wy, wx+1,wy+1)
+                            continue
+                        }
+
+                        if util.is_cell(wx-1,wy+1, ca.CT_NONE) {
+                            util.swap(wx,wy, wx-1,wy+1)
                             continue
                         }
                     }
 
-                    if movable_x(x,-1) {
-                        if is_cell(x-1,y+1, CT_NONE) {
-                            swap(x,y, x-1,y+1)
+                    if util.is_cell(wx,wy, ca.CT_STONE) {
+                        if util.is_cell(wx+1,wy-1, ca.CT_STONE) && util.is_cell(wx-1,wy-1, ca.CT_STONE) {
+                            util.stay(chk,x,y)
+                            continue
+                        }
+
+                        if util.is_cell(wx,wy+1, ca.CT_NONE) {
+                            util.swap(wx,wy, wx,wy+1)
                             continue
                         }
                     }
-                    */
                 }
             }
         }
@@ -120,33 +97,47 @@ tick :: proc() {
 draw :: proc() {
     d.clear(0,0,0)
 
-    for x : i32 = 0; x < 256; x += 1 {
-        for y : i32 = 0; y < 256; y += 1 {
-            if is_cell(x,y, CT_NONE) {
+    for i := 0; i < 1; i += 1 {
+        for j := 0; j < 1; j += 1 {
+            chk := util.get_chk_cs(i,j)
+            if chk == nil {
                 continue
             }
 
-            d.fill(
-                u8((world[y][x] >> 9) & 0b111) *36,
-                u8((world[y][x] >> 6) & 0b111) *36,
-                u8((world[y][x] >> 3) & 0b111) *36
-            )
+            /*
+                for x := 0; x < 512; x += 1 {
+                    for y := 0; y < 512; y += 1 {
+                        if util.is_cell(x,y, ca.CT_NONE) {
+                            continue
+                        }
 
-            d.rect(x*RENDERSCALE,y*RENDERSCALE,RENDERSCALE,RENDERSCALE)
+                        d.fill(
+                            u8((chk.data[y][x] >> 9) & 0b111) *36,
+                            u8((chk.data[y][x] >> 6) & 0b111) *36,
+                            u8((chk.data[y][x] >> 3) & 0b111) *36
+                        )
+
+                        d.rect(i32(((i<<9)|x)*RENDERSCALE),i32(((j<<9)|y)*RENDERSCALE),RENDERSCALE,RENDERSCALE)
+                    }
+                }
+            */
+
+            tex := rl.LoadTextureFromImage(chk.img) // TODO: FIGURE OUT A WAY TO CLEAR THIS
+            rl.DrawTextureEx(tex,rl.Vector2{f32((i<<9)*RENDERSCALE),f32((j<<9)*RENDERSCALE)},0,RENDERSCALE,rl.Color{255,255,255,255})
         }
     }
 
     if inp.is_mouse_down(rl.MouseButton.LEFT) {
-        place_cell(i32(inp.mouse_x/RENDERSCALE),i32(inp.mouse_y/RENDERSCALE), CT_SAND)
+        util.place_cell(int(inp.mouse_x/RENDERSCALE),int(inp.mouse_y/RENDERSCALE), ca.CT_SAND)
+    }
+    if inp.is_mouse_down(rl.MouseButton.RIGHT) {
+        util.place_cell(int(inp.mouse_x/RENDERSCALE),int(inp.mouse_y/RENDERSCALE), ca.CT_STONE)
     }
 
     if inp.is_mouse_down(rl.MouseButton.MIDDLE) {
-        place_cell(i32(inp.mouse_x/RENDERSCALE),i32(inp.mouse_y/RENDERSCALE), CT_NONE)
+        util.place_cell(int(inp.mouse_x/RENDERSCALE),int(inp.mouse_y/RENDERSCALE), ca.CT_NONE)
     }
 
-    if inp.is_key_down(rl.KeyboardKey.C) {
-        world = [256][256]u16{}
-    }
 
     fps_update_time += rl.GetFrameTime()
 
@@ -157,91 +148,10 @@ draw :: proc() {
         fps_update_time = 0
     }
 
-    rl.DrawText("köppas pre-alpha (2)", 3,3,16,rl.Color{255,255,255,255})
+    rl.DrawText("köppas pre-alpha (3)", 3,3,16,rl.Color{255,255,255,255})
     rl.DrawText(fpsc, 3,22, 16,rl.Color{255,255,255,255})
 }
 
 quit :: proc() {
 
-}
-
-
-place_cell :: proc(x,y:i32, type:int) {
-    if !bounds_x(x) || !bounds_y(y) {
-        return
-    }
-
-    switch type {
-        case CT_NONE:
-            world[y][x] = CT_NONE
-        case CT_SAND:
-            r := rand.int31_max(3)
-            switch r {
-                case 0:
-                    world[y][x] = 0b0000_111_111_000_000 | CT_SAND
-                case 1:
-                    world[y][x] = 0b0000_111_110_000_000 | CT_SAND
-                case 2:
-                    world[y][x] = 0b0000_110_110_000_000 | CT_SAND
-            }
-        case CT_STONE:
-            r := rand.int31_max(3)
-            switch r {
-                case 0:
-                    world[y][x] = 0b0000_100_100_100_000 | CT_STONE
-                case 1:
-                    world[y][x] = 0b0000_100_100_100_000 | CT_STONE
-                case 2:
-                    world[y][x] = 0b0000_100_100_100_000 | CT_STONE
-            }
-    }
-}
-
-swap :: proc(x1,y1,x2,y2: i32) {
-    world[y1][x1] ~= world[y2][x2]
-    world[y2][x2] ~= world[y1][x1]
-    world[y1][x1] ~= world[y2][x2]
-    changed[y1][x1] = 1
-    changed[y2][x2] = 1
-}
-
-stay :: proc(x,y: i32) {
-    changed[y][x] = 1
-}
-
-is_cell :: proc(x,y: i32, type:int) -> bool {
-    return bounds_x(x) && bounds_y(y) && int(world[y][x] & 0b111) == type
-}
-
-
-movable_x :: proc(x,d:i32) -> bool {
-    switch d {
-        case -1:
-            return x > 0
-        case 1:
-            return x < 256-1
-    }
-
-    fmt.println("%d IS NOT A VALID MOVE DIRECTION (movable_x)",d)
-    return false
-}
-
-movable_y :: proc(y,d:i32) -> bool {
-    switch d {
-        case -1:
-            return y > 0
-        case 1:
-            return y < 256-1
-    }
-
-    fmt.println("%d IS NOT A VALID MOVE DIRECTION (movable_y)",d)
-    return false
-}
-
-bounds_x :: proc(x:i32) -> bool {
-    return !(x < 0 || x >= 256)
-}
-
-bounds_y :: proc(y:i32) -> bool {
-    return !(y < 0 || y >= 256)
 }
